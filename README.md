@@ -83,8 +83,4 @@ python export_onnx.py
 
 Contributions are welcome! Please open an issue or submit a pull request for any performance improvements or new intent templates.
 
-## 📄 License
-
-MIT License
-```
 
