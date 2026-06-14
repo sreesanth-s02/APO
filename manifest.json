@@ -1,0 +1,23 @@
+{
+  "manifest_version": 3,
+  "name": "Prompt Optimizer",
+  "version": "1.0",
+  "description": "AI Prompt Optimization Extension",
+  "permissions": ["activeTab", "storage"],
+  "content_scripts": [
+    {
+      "matches": ["https://chatgpt.com/*"],
+      "js": ["apo-config.js", "apo-utils.js", "apo-intent.js", "apo-templates.js", "apo-ui.js", "content.js"],
+      "css": ["styles.css"]
+    }
+  ],
+  "action": {
+    "default_popup": "popup.html"
+  },
+  "web_accessible_resources": [
+    {
+      "resources": ["models/**/*", "lib/transformers/*.wasm", "lib/transformers/transformers.js"],
+      "matches": ["https://chatgpt.com/*"]
+    }
+  ]
+}

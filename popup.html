@@ -1,0 +1,187 @@
+<!doctype html>
+<html lang="en">
+<head>
+	<meta charset="UTF-8" />
+	<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+	<title>Prompt Optimizer</title>
+	<style>
+		:root {
+			color-scheme: light dark;
+			--card: rgba(255, 255, 255, 0.96);
+			--text: #0f172a;
+			--muted: #475569;
+			--line: rgba(15, 23, 42, 0.14);
+			--accent: #0f766e;
+			--accent-hover: #115e59;
+			--field-bg: #ffffff;
+			--field-text: #0f172a;
+			--field-border: rgba(15, 23, 42, 0.18);
+			--surface-shadow: 0 14px 30px rgba(15, 23, 42, 0.12);
+		}
+
+		@media (prefers-color-scheme: dark) {
+			:root {
+				--card: rgba(15, 23, 42, 0.94);
+				--text: #f8fafc;
+				--muted: #cbd5e1;
+				--line: rgba(255, 255, 255, 0.12);
+				--accent: #14b8a6;
+				--accent-hover: #0f766e;
+				--field-bg: rgba(255, 255, 255, 0.08);
+				--field-text: #f8fafc;
+				--field-border: rgba(255, 255, 255, 0.16);
+				--surface-shadow: 0 18px 34px rgba(0, 0, 0, 0.34);
+			}
+		}
+
+		* {
+			box-sizing: border-box;
+		}
+
+		body {
+			margin: 0;
+			font-family: "Segoe UI", "Helvetica Neue", sans-serif;
+			color: var(--text);
+			min-width: 300px;
+			background: radial-gradient(circle at top right, rgba(20, 184, 166, 0.16) 0%, rgba(59, 130, 246, 0.12) 45%, rgba(255, 255, 255, 0.96) 100%);
+			padding: 14px;
+		}
+
+		@media (prefers-color-scheme: dark) {
+			body {
+				background: radial-gradient(circle at top right, rgba(20, 184, 166, 0.16) 0%, rgba(59, 130, 246, 0.1) 45%, rgba(15, 23, 42, 0.98) 100%);
+			}
+		}
+
+		.card {
+			border: 1px solid var(--line);
+			border-radius: 14px;
+			background: var(--card);
+			padding: 14px;
+			box-shadow: var(--surface-shadow);
+			backdrop-filter: blur(12px);
+		}
+
+		h1 {
+			margin: 0 0 8px;
+			font-size: 14px;
+		}
+
+		p {
+			margin: 0 0 12px;
+			font-size: 12px;
+			color: var(--muted);
+			line-height: 1.35;
+		}
+
+		label {
+			display: block;
+			font-size: 12px;
+			margin-bottom: 8px;
+		}
+
+		select,
+		input[type="checkbox"] {
+			margin-top: 4px;
+		}
+
+		select {
+			width: 100%;
+			padding: 7px 9px;
+			border-radius: 8px;
+			border: 1px solid var(--field-border);
+			background: var(--field-bg);
+			color: var(--field-text);
+			-webkit-appearance: none;
+			appearance: none;
+		}
+
+		select option {
+			background: var(--card);
+			color: var(--text);
+		}
+
+		.row {
+			display: flex;
+			align-items: center;
+			gap: 8px;
+			margin: 10px 0;
+		}
+
+		.row label {
+			margin-bottom: 0;
+			color: var(--text);
+		}
+
+		button {
+			margin-top: 8px;
+			width: 100%;
+			border: none;
+			background: var(--accent);
+			color: #ffffff;
+			padding: 11px;
+			border-radius: 11px;
+			font-weight: 600;
+			cursor: pointer;
+			transition: background-color 0.16s ease, transform 0.16s ease, box-shadow 0.16s ease;
+			box-shadow: 0 8px 18px rgba(15, 118, 110, 0.2);
+		}
+
+		button:hover {
+			background: var(--accent-hover);
+			transform: translateY(-1px);
+		}
+
+		select:focus,
+		button:focus,
+		input[type="checkbox"]:focus {
+			outline: 2px solid var(--accent);
+			outline-offset: 2px;
+		}
+
+		.status {
+			min-height: 14px;
+			margin-top: 7px;
+			font-size: 11px;
+			color: var(--muted);
+			text-align: center;
+		}
+
+		.mode-hint {
+			margin-top: 6px;
+			font-size: 11px;
+			color: var(--muted);
+		}
+	</style>
+</head>
+<body>
+	<div class="card">
+		<h1>Adaptive Prompt Optimizer</h1>
+		<p>Quiet prompt improvements with local intent-aware optimization.</p>
+
+		<label for="mode">Mode</label>
+		<select id="mode" name="mode">
+			<option value="simple">Simple (one-click)</option>
+			<option value="advanced">Advanced (show intent and confidence)</option>
+		</select>
+		<div class="mode-hint">Advanced mode shows intent, confidence, and token savings next to the Optimize control.</div>
+
+		<div class="row">
+			<input id="prefersBullets" name="prefersBullets" type="checkbox" />
+			<label for="prefersBullets">Prefer bullet-structured responses</label>
+		</div>
+
+		<label for="verbosity">Preferred verbosity</label>
+		<select id="verbosity" name="verbosity">
+			<option value="low">Low</option>
+			<option value="medium">Medium</option>
+			<option value="high">High</option>
+		</select>
+
+		<button id="saveBtn" type="button">Save settings</button>
+		<div id="status" class="status"></div>
+	</div>
+
+	<script src="popup.js"></script>
+</body>
+</html>

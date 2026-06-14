@@ -1,0 +1,23 @@
+# Large Model Binaries
+models/
+ml-model/intent_model/
+ml-model/results/
+ml-model/logs/
+
+# Dependencies and Environments
+node_modules/
+venv/
+.venv/
+
+# Python Artifacts
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.ipynb_checkpoints/
+
+# OS and IDE files
+.env
+.DS_Store
+.vscode/
+Thumbs.db
