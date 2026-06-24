@@ -1,14 +1,3 @@
-/* ==================================================================
- * Improved Lighthouse Performance for APO UI
- * Key changes:
- *  - Single combined event handler on textarea instead of 5+ separate ones
- *  - Layout-free positioning using cached offsets + RAF
- *  - Removed redundant polling (only MutationObserver needs to run)
- *  - Removed forced synchronous getBoundingClientRect reads from hot paths
- *  - Deferred expensive operations (backdrop-filter, classification) via RAF
- *  - Stopped eager init of transformers — pipeline loads on first Optimize click only
- * ================================================================== */
-
 function getStoredSettings() {
     return new Promise((resolve) => {
         chrome.storage.sync.get(DEFAULT_SETTINGS, (result) => {
@@ -17,19 +6,11 @@ function getStoredSettings() {
     });
 }
 
-/* ---- Element cache to avoid repeated DOM queries ---- */
-let _cachedTextareaRect = null;
-let _cachedRootRect = null;
-let _rafId = null;
-
-function invalidateRectsCache() {
-    _cachedTextareaRect = null;
-    _cachedRootRect = null;
-}
-
 function ensureRoot(textarea) {
     let root = document.getElementById(EXTENSION_ROOT_ID);
-    if (root) return root;
+    if (root) {
+        return root;
+    }
 
     root = document.createElement("div");
     root.id = EXTENSION_ROOT_ID;
@@ -104,45 +85,29 @@ function ensureRoot(textarea) {
     return root;
 }
 
-/* ---- Positioning (layout-free via RAF + cached transforms) ---- */
 function positionRoot() {
-    if (!sharedState.root || !sharedState.textarea) return;
-
-    // Schedule position update on next frame to avoid synchronous layout
-    if (_rafId) cancelAnimationFrame(_rafId);
-    _rafId = requestAnimationFrame(() => {
-        _rafId = null;
-        _positionRootNow();
-    });
-}
-
-function _positionRootNow() {
-    const root = sharedState.root;
-    const ta = sharedState.textarea;
-    if (!root || !ta) return;
-
-    // Cache rects to avoid forced layout on subsequent calls in same frame
-    if (!_cachedTextareaRect) {
-        _cachedTextareaRect = ta.getBoundingClientRect();
-    }
-    const rect = _cachedTextareaRect;
-    if (rect.width === 0 || rect.height === 0) {
-        root.style.visibility = "hidden";
+    if (!sharedState.root || !sharedState.textarea) {
         return;
     }
 
-    if (!_cachedRootRect) {
-        _cachedRootRect = root.getBoundingClientRect();
+    const rect = sharedState.textarea.getBoundingClientRect();
+    if (rect.width === 0 || rect.height === 0) {
+        sharedState.root.style.visibility = "hidden";
+        return;
     }
-    const rRect = _cachedRootRect;
-    const width = rRect.width || 120;
-    const height = rRect.height || 44;
+
+    // Get dimensions of the root without forcing a synchronous reflow if possible.
+    // We use getBoundingClientRect for both to keep reads together.
+    const rootRect = sharedState.root.getBoundingClientRect();
+    const width = rootRect.width || 120;
+    const height = rootRect.height || 44;
 
     const left = Math.max(8, rect.right - width);
     const top = Math.max(8, rect.top - height - 12);
 
-    root.style.transform = `translate3d(${left}px, ${top}px, 0)`;
-    root.style.visibility = "visible";
+    // Use transform for positioning to avoid triggering layout.
+    sharedState.root.style.transform = `translate3d(${left}px, ${top}px, 0)`;
+    sharedState.root.style.visibility = "visible";
 
     if (sharedState.panel && sharedState.panel.classList.contains("is-open")) {
         positionClarificationPanel();
@@ -150,42 +115,46 @@ function _positionRootNow() {
 }
 
 function positionClarificationPanel() {
-    if (!sharedState.root || !sharedState.panel || !sharedState.panel.classList.contains("is-open")) return;
+    if (!sharedState.root || !sharedState.panel || !sharedState.panel.classList.contains("is-open")) {
+        return;
+    }
 
-    requestAnimationFrame(() => {
-        const maxPanelWidth = Math.min(380, window.innerWidth - 24);
-        const maxPanelHeight = Math.min(320, window.innerHeight - 24);
+    const maxPanelWidth = Math.min(380, window.innerWidth - 24);
+    const maxPanelHeight = Math.min(320, window.innerHeight - 24);
 
-        sharedState.panel.style.position = "fixed";
-        sharedState.panel.style.width = `${maxPanelWidth}px`;
-        sharedState.panel.style.maxHeight = `${maxPanelHeight}px`;
-        sharedState.panel.style.left = "50%";
-        sharedState.panel.style.top = "50%";
-        sharedState.panel.style.transform = "translate(-50%, -50%)";
-    });
+    sharedState.panel.style.position = "fixed";
+    sharedState.panel.style.width = `${maxPanelWidth}px`;
+    sharedState.panel.style.maxHeight = `${maxPanelHeight}px`;
+    sharedState.panel.style.left = "50%";
+    sharedState.panel.style.top = "50%";
+    sharedState.panel.style.transform = "translate(-50%, -50%)";
 }
 
-/* ---- Composer target detection (fast checks first) ---- */
 function findComposerTarget() {
-    // Fast: check isConnected before any rect read
+    // Query for the primary textarea first.
     const textarea = document.querySelector("textarea");
-    if (textarea && textarea.isConnected) {
-        // Lazy rect check — only when we've already selected it
+    // connection check is much cheaper than offsetParent check.
+    if (textarea && textarea.isConnected && textarea.getBoundingClientRect().width > 0) {
         return textarea;
     }
 
+    // Only scan for editables if textarea isn't found/visible.
     const editable = document.querySelector('[contenteditable="true"][role="textbox"]');
-    if (editable && editable.isConnected) {
+    if (editable && editable.isConnected && editable.getBoundingClientRect().width > 0) {
         return editable;
     }
     return null;
 }
 
 function readComposerText(target) {
-    if (!target) return "";
+    if (!target) {
+        return "";
+    }
+
     if (target.tagName === "TEXTAREA" || target.tagName === "INPUT") {
         return target.value || "";
     }
+
     return target.textContent || "";
 }
 
@@ -206,41 +175,44 @@ function updateVisibilityFromCurrentComposer() {
 }
 
 function setButtonVisibility(shouldShow) {
-    if (!sharedState.root) return;
+    if (!sharedState.root) {
+        return;
+    }
+
     sharedState.root.classList.toggle("is-visible", shouldShow);
     if (shouldShow) {
-        // Invalidate cached rects so positionRoot recalculates on next RAF
-        invalidateRectsCache();
         positionRoot();
     }
 }
 
 function setEfficientPromptState(isEfficient) {
-    if (!sharedState.root || !sharedState.meta) return;
+    if (!sharedState.root || !sharedState.meta) {
+        return;
+    }
 
     sharedState.root.classList.toggle("is-efficient", isEfficient);
 
     if (sharedState.settings.mode === "advanced") {
-        invalidateRectsCache();
         positionRoot();
         return;
     }
 
     sharedState.meta.textContent = isEfficient ? "Efficient prompt" : "";
     sharedState.root.classList.toggle("has-meta", isEfficient);
-    invalidateRectsCache();
     positionRoot();
 }
 
 function revertToOriginalPrompt() {
-    if (!sharedState.textarea || !sharedState.lastOptimizedInput) return;
+    if (!sharedState.textarea || !sharedState.lastOptimizedInput) {
+        return;
+    }
 
     updateTextareaValue(sharedState.lastOptimizedInput);
-
+    
     sharedState.lastOptimizedInput = "";
     sharedState.lastOptimizedOutput = "";
     setEfficientPromptState(false);
-
+    
     if (sharedState.settings.mode === "advanced") {
         refreshAdvancedPreview();
     }
@@ -265,25 +237,36 @@ function updateTextareaValue(text) {
 }
 
 function setAdvancedSummary(intent, confidence, afterTokens) {
-    if (!sharedState.root || !sharedState.meta) return;
-    if (sharedState.settings.mode !== "advanced") return;
+    if (!sharedState.root || !sharedState.meta) {
+        return;
+    }
+
+    if (sharedState.settings.mode !== "advanced") {
+        return;
+    }
 
     sharedState.root.classList.add("has-meta");
     sharedState.meta.textContent = `Intent: ${intent} | Confidence: ${Math.round(confidence * 100)}% | Tokens: ~${afterTokens}`;
 }
 
 async function refreshAdvancedPreview() {
-    if (!sharedState.textarea || sharedState.settings.mode !== "advanced") return;
+    if (!sharedState.textarea || sharedState.settings.mode !== "advanced") {
+        return;
+    }
 
     const currentText = normalizeText(readComposerText(sharedState.textarea));
-    if (!currentText) return;
+    if (!currentText) {
+        return;
+    }
 
     const { intent, confidence } = await classifyIntent(currentText);
     setAdvancedSummary(intent, confidence, estimateTokens(currentText));
 }
 
 function renderAdvancedMeta(intent, confidence, beforeTokens, afterTokens) {
-    if (!sharedState.meta) return;
+    if (!sharedState.meta) {
+        return;
+    }
 
     if (sharedState.settings.mode !== "advanced") {
         sharedState.meta.textContent = "";
@@ -356,21 +339,23 @@ function askClarification(intent) {
 }
 
 async function optimizeCurrentPrompt() {
-    if (!sharedState.textarea) return;
+    if (!sharedState.textarea) {
+        return;
+    }
 
     const original = normalizeText(readComposerText(sharedState.textarea));
-    if (!original) return;
+    if (!original) {
+        return;
+    }
 
     if (sharedState.lastOptimizedOutput && original === sharedState.lastOptimizedOutput) {
         setEfficientPromptState(true);
-        invalidateRectsCache();
         positionRoot();
         return;
     }
 
     if (sharedState.lastOptimizedInput && original === sharedState.lastOptimizedInput) {
         setEfficientPromptState(true);
-        invalidateRectsCache();
         positionRoot();
         return;
     }
@@ -411,7 +396,22 @@ async function optimizeCurrentPrompt() {
     const beforeTokens = estimateTokens(original);
     const afterTokens = estimateTokens(optimized);
 
-    updateTextareaValue(optimized);
+    if (sharedState.textarea.tagName === "TEXTAREA" || sharedState.textarea.tagName === "INPUT") {
+        const nativeValueSetter = Object.getOwnPropertyDescriptor(
+            Object.getPrototypeOf(sharedState.textarea),
+            "value"
+        )?.set;
+
+        if (nativeValueSetter) {
+            nativeValueSetter.call(sharedState.textarea, optimized);
+        } else {
+            sharedState.textarea.value = optimized;
+        }
+    } else {
+        sharedState.textarea.innerText = optimized;
+    }
+
+    sharedState.textarea.dispatchEvent(new Event("input", { bubbles: true }));
 
     sharedState.lastOptimizedInput = original;
     sharedState.lastOptimizedOutput = optimized;
@@ -420,19 +420,19 @@ async function optimizeCurrentPrompt() {
     setAdvancedSummary(intent, confidence, afterTokens);
 }
 
-/* ---- Single combined input handler (avoids 5 separate listeners) ---- */
-function handleTextareaChange() {
+function onTextareaInput() {
     clearTimeout(sharedState.debounceId);
-    sharedState.debounceId = window.setTimeout(() => {
-        if (!sharedState.textarea) return;
+    sharedState.debounceId = window.setTimeout(async () => {
+        if (!sharedState.textarea) {
+            return;
+        }
 
         const value = normalizeText(readComposerText(sharedState.textarea));
         setButtonVisibility(value.length >= MIN_CHARS_TO_SHOW);
-        invalidateRectsCache();
         positionRoot();
 
         if (sharedState.settings.mode === "advanced" && value.length >= MIN_CHARS_TO_SHOW) {
-            refreshAdvancedPreview();
+            await refreshAdvancedPreview();
         } else if (sharedState.meta) {
             sharedState.meta.textContent = "";
             sharedState.root?.classList.remove("has-meta");
@@ -446,7 +446,8 @@ function handleTextareaChange() {
     }, PAUSE_MS);
 }
 
-function handleTextareaKeydown(event) {
+function onTextareaKeydown(event) {
+    // Intercept Ctrl+Shift+O (or Cmd+Shift+O on Mac) to trigger optimization
     if ((event.ctrlKey || event.metaKey) && event.shiftKey && event.code === "KeyO") {
         const value = readComposerText(sharedState.textarea);
         if (normalizeText(value).length >= MIN_CHARS_TO_SHOW) {
@@ -458,31 +459,39 @@ function handleTextareaKeydown(event) {
 }
 
 function bindTextarea(textarea) {
-    if (!textarea || sharedState.textarea === textarea) return;
+    if (!textarea || sharedState.textarea === textarea) {
+        return;
+    }
 
     sharedState.textarea = textarea;
     ensureRoot(textarea);
 
-    // Remove old listeners by replacing with a single combined handler
-    textarea.removeEventListener("input", handleTextareaChange);
-    textarea.removeEventListener("keydown", handleTextareaKeydown);
-    textarea.removeEventListener("scroll", positionRoot);
+    textarea.removeEventListener("input", onTextareaInput);
+    textarea.removeEventListener("keyup", onTextareaInput);
+    textarea.removeEventListener("change", onTextareaInput);
+    textarea.removeEventListener("paste", onTextareaInput);
+    textarea.removeEventListener("cut", onTextareaInput);
+    textarea.removeEventListener("keydown", onTextareaKeydown);
 
-    // Single input event covers input/keyup/change/paste/cut
-    textarea.addEventListener("input", handleTextareaChange, { passive: true });
-    textarea.addEventListener("keydown", handleTextareaKeydown);
+    textarea.addEventListener("input", onTextareaInput, { passive: true });
+    textarea.addEventListener("keyup", onTextareaInput, { passive: true });
+    textarea.addEventListener("change", onTextareaInput, { passive: true });
+    textarea.addEventListener("paste", onTextareaInput, { passive: true });
+    textarea.addEventListener("cut", onTextareaInput, { passive: true });
+    textarea.addEventListener("keydown", onTextareaKeydown);
     textarea.addEventListener("scroll", positionRoot, { passive: true });
 
-    handleTextareaChange();
+    onTextareaInput();
 }
 
 function findTargetTextarea() {
     return findComposerTarget();
 }
 
-/* ---- Observer: only MutationObserver — removed redundant polling ---- */
 function monitorTextareaLifecycle() {
-    if (sharedState.observer) return;
+    if (sharedState.observer) {
+        return;
+    }
 
     sharedState.observer = new MutationObserver(() => {
         const textarea = findTargetTextarea();
@@ -497,18 +506,19 @@ function monitorTextareaLifecycle() {
             subtree: true
         });
     }
+ 
+    window.setInterval(() => {
+        const textarea = findTargetTextarea();
+        if (textarea) {
+            bindTextarea(textarea);
+            if (document.hasFocus()) {
+                updateVisibilityFromCurrentComposer();
+            }
+        }
+    }, 2500); // Polling frequency reduced to save main thread time.
 
-    // Single resize/scroll listener that batches invalidations via RAF
-    window.addEventListener("resize", () => {
-        invalidateRectsCache();
-        positionRoot();
-    }, { passive: true });
-    window.addEventListener("scroll", () => {
-        invalidateRectsCache();
-        positionRoot();
-    }, { passive: true, capture: true });
-
-    // Clarification panel repositions on same events
+    window.addEventListener("resize", positionRoot, { passive: true });
+    window.addEventListener("scroll", positionRoot, { passive: true, capture: true });
     window.addEventListener("resize", positionClarificationPanel, { passive: true });
     window.addEventListener("scroll", positionClarificationPanel, { passive: true, capture: true });
 }
@@ -524,7 +534,9 @@ async function initializePromptOptimizer() {
     monitorTextareaLifecycle();
 
     chrome.storage.onChanged.addListener(async (changes, areaName) => {
-        if (areaName !== "sync") return;
+        if (areaName !== "sync") {
+            return;
+        }
 
         if (changes.mode) {
             sharedState.settings.mode = changes.mode.newValue;
