@@ -8,7 +8,8 @@
     {
       "matches": ["https://chatgpt.com/*"],
       "js": ["apo-config.js", "apo-utils.js", "apo-intent.js", "apo-templates.js", "apo-ui.js", "content.js"],
-      "css": ["styles.css"]
+      "css": ["styles.css"],
+      "run_at": "document_idle"
     }
   ],
   "action": {

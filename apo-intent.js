@@ -21,7 +21,7 @@ function inferFallbackIntent(text) {
         return "summarization";
     }
 
-    if (/\b(explain|understand|learn|teach|simple words|beginner|what is|what's|how do i|how can i|how to|why is|why are|where can i|where should i|who is|who are|interview|exam|test|placement)\b/.test(lower)) {
+    if (/\b(explain|understand|learn|teach|concepts|basics|fundamentals|simple words|beginner|what is|what's|how do i|how can i|how to|why is|why are|where can i|where should i|who is|who are|interview|exam|test|placement)\b/.test(lower)) {
         return "learning";
     }
 
@@ -103,6 +103,11 @@ async function classifyIntent(text) {
     const lower = text.toLowerCase();
 
     // 1. Technical "Fast-Path" (Hard Overrides)
+    // Specific override for Interview Prep and CS Concepts
+    if (/\b(interview|placement|job prep|exam)\b/i.test(lower) && /\b(concepts|basics|fundamentals|explain|understand)\b/i.test(lower)) {
+        return { intent: "learning", confidence: 0.95 };
+    }
+
     // If we see specific technical keywords, we can be confident even without ML
     if (/\b(python|javascript|java|cpp|rust|sql|api)\b/i.test(lower)) {
         if (/\b(fix|bug|error|crash|debug)\b/i.test(lower)) {
@@ -113,21 +118,29 @@ async function classifyIntent(text) {
         }
     }
 
-    // 2. ML Classification
+    // 2. Prepare text for ML by stripping conversational fluff
+    // This prevents "Hey GPT I have a..." from skewing the classification
+    const mlText = text
+        .replace(/^(hey|hi|hello|yo|bro|gpt|chatgpt|assistant|please)[,\s]*/i, "")
+        .replace(/^(i have|i need|i want|help me|can you)[,\s]*/i, "");
+
+    // 3. ML Classification
     try {
-        const mlResult = await classifyIntentML(text);
-        // If ML is very confident, use it immediately
-        if (mlResult.confidence > HIGH_CONFIDENCE) {
+        const mlResult = await classifyIntentML(mlText);
+        const fallbackIntent = inferFallbackIntent(text);
+
+        // If ML is extremely confident, trust it
+        if (mlResult.confidence > 0.85) {
             return mlResult;
         }
         
-        // If ML is somewhat confident, combine it with a quick keyword check
-        const fallbackIntent = inferFallbackIntent(text);
+        // If ML and rules agree, or if ML is reasonably confident, use ML
         if (mlResult.intent === fallbackIntent) {
-            return { intent: mlResult.intent, confidence: Math.min(0.98, mlResult.confidence + 0.1) };
+            return { intent: mlResult.intent, confidence: Math.min(0.98, mlResult.confidence + 0.15) };
         }
 
-        return mlResult;
+        // If ML is shaky (< 0.80) and differs from our rule-based fallback, prefer the fallback
+        return { intent: fallbackIntent, confidence: 0.70 };
     } catch (e) {
         console.error("ML Classifier Error:", e);
         console.warn("Using rule-based fallback.");

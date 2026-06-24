@@ -33,11 +33,13 @@
     width: auto;
     z-index: 2147483646;
     opacity: 0;
-    transform: translateY(-2px) scale(0.98);
+    /* Use translate3d to force a new compositor layer */
+    transform: translate3d(0, 0, 0) scale(0.98);
     pointer-events: none;
     transition: opacity 0.18s ease, transform 0.18s ease;
     margin: 0;
     visibility: hidden;
+    will-change: transform, opacity;
 }
 
 .apo-root.is-visible {
@@ -56,9 +58,13 @@
     padding: 8px 10px 8px 12px;
     border-radius: 999px;
     background: var(--apo-surface);
-    backdrop-filter: blur(14px);
     box-shadow: var(--apo-chip-shadow);
     border: 1px solid var(--apo-surface-border);
+    /* backdrop-filter is expensive for paint; use a fallback that layers cleanly */
+    -webkit-backdrop-filter: blur(14px);
+    backdrop-filter: blur(14px);
+    /* Promote to own compositor layer — isolates paint and avoids touching backdrop */
+    transform: translateZ(0);
 }
 
 .apo-optimize-btn {
@@ -171,12 +177,14 @@
     padding: 16px;
     background: var(--apo-surface);
     color: var(--apo-surface-text);
+    -webkit-backdrop-filter: blur(14px);
     backdrop-filter: blur(14px);
     box-shadow: var(--apo-chip-shadow);
     max-height: min(320px, calc(100vh - 24px));
     overflow: auto;
     z-index: 2147483647;
-    transform: translate(-50%, -50%);
+    transform: translateZ(0) translate(-50%, -50%);
+    will-change: transform;
 }
 
 .apo-clarify.is-open {

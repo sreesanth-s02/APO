@@ -10,7 +10,7 @@ function stripOptimizationNoise(text) {
         .replace(/\b(Structure|Tone|Expected output|Constraints|Focus|Requirements|Formatting|Details|Audience|Format):\s*([\s\S]*)$/gi, "")
 
         // NEW: Aggressively remove introductory template phrases to prevent them from leaking into the topic on re-optimization
-        .replace(/\b(Write a clean and efficient ([\w+ ]+ )?solution for|Solve this programming task|Debug this ([\w+ ]+ )?code|Debug this code|Explain .+ for a beginner|Summarize|Write a story about|Create a script for|Generate an image prompt for|Translate the following accurately|Rewrite the following text|Write a professional email about|Answer this (directly|with a clear explanation)|Help with|Identify who|List the best|Explain why|Recommend|Show how to)\b\s*[:.]?\s*/gi, "")
+        .replace(/\b((Write\s+a\s+)?clean\s+(and\s+)?efficient\s+([\w+ ]+\s+)?solution\s+for|Solve\s+this\s+programming\s+task|Debug\s+this\s+([\w+ ]+\s+)?code|Debug\s+this\s+code|Explain\s+.+\s+for\s+a\s+beginner|Summarize|Write\s+a\s+story\s+about|Create\s+a\s+script\s+for|Generate\s+an\s+image\s+prompt\s+for|Translate\s+the\s+following\s+accurately|Rewrite\s+the\s+following\s+text|Write\s+a\s+professional\s+email\s+about|Answer\s+this\s+(directly|with\s+a\s+clear\s+explanation)|Help\s+with|Identify\s+who|List\s+the\s+best|Explain\s+why|Recommend|Show\s+how\s+to)\b\s*[:.]?\s*/gi, "")
 
         .replace(/^(explain|write|create|summarize|improve|fix|rewrite|draft|make|help)\s+(\1\s+)+/i, "$1 ")
         .replace(/\bkeep the response (clear and balanced in detail|concise|detailed but structured|short but structured)\.?/gi, "")
@@ -62,7 +62,7 @@ function extractTopic(text) {
     topic = topic.replace(/^(\w+)(\s+\1\b)+/i, "$1");
 
     // Remove multiple common prefixes like "Please can you explain teach me..."
-    const prefixRegex = /^(and\s+|to\s+|please\s+|can you\s+|could you\s+|would you\s+|should i\s+|how do i\s+|how can i\s+|how to\s+|what are\s+|what is\s+|what's\s+|why is\s+|why are\s+|where can i\s+|where should i\s+|tell me about\s+|give me\s+|list\s+|recommend\s+|suggest\s+|explain\s+|summarize\s+|write\s+|create\s+|make\s+|draft\s+|fix\s+|improve\s+|rewrite\s+|help me\s+|teach\s+|teach me\s+|(a\s+)?clean\s+and\s+efficient\s+([\w+]+\s+)?solution\s+for\s*[:]?\s*|clean\s+efficient\s+([\w+]+\s+)?solution\s+for\s*[:]?\s*)+/i;
+    const prefixRegex = /^(and\s+|to\s+|please\s+|can you\s+|could you\s+|would you\s+|should i\s+|how do i\s+|how can i\s+|how to\s+|what are\s+|what is\s+|what's\s+|why is\s+|why are\s+|where can i\s+|where should i\s+|tell me about\s+|give me\s+|list\s+|recommend\s+|suggest\s+|explain\s+|summarize\s+|write\s+|create\s+|make\s+|draft\s+|fix\s+|improve\s+|rewrite\s+|help me\s+|teach\s+|teach me\s+|(a\s+)?(write\s+a\s+)?clean\s+(and\s+)?efficient\s+([\w+]+\s+)?solution\s+for\s*[:]?\s*)+/i;
     topic = topic.replace(prefixRegex, "").replace(/^[:\s-]+/, "");
 
     // Remove common suffixes the template might add back

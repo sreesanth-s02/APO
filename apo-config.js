@@ -1,6 +1,6 @@
 const EXTENSION_ROOT_ID = "apo-root";
 const MIN_CHARS_TO_SHOW = 8;
-const PAUSE_MS = 350;
+const PAUSE_MS = 500; // Increased to reduce frequency of ML tasks during typing
 const HIGH_CONFIDENCE = 0.70; // Trust the ML result if above this
 const CLARIFICATION_THRESHOLD = 0.75; // Ask follow-up questions if below this
 
